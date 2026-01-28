@@ -1,0 +1,38 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: aurca_db
+    restart: always
+    # Docker Compose inyectará automáticamente las variables del .env aquí
+    env_file: .env 
+    ports:
+      - "5433:5432"
+    volumes:
+      - aurca_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: aurca_agent
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    # El agente también lee todo el .env
+    env_file: .env
+    #volumes:
+    #- ./src:/app/src
+    #- ./src/keys:/app/src/keys:ro
+    # Solo dejamos explícita la URL de la DB si queremos sobrescribir el host local 
+    # por el nombre del servicio de Docker
+    environment:
+      - PYTHONPATH=/app:/app/src
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@{DB_HOST}:5432/${POSTGRES_DB}
+
+volumes:
+  aurca_db_data:

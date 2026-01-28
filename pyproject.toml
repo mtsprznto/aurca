@@ -1,0 +1,23 @@
+[project]
+name = "aurca"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg>=0.31.0",
+    "cmake>=4.2.1",
+    "fastapi[standard]>=0.128.0",
+    "ninja>=1.13.0",
+    "pybind11>=3.0.1",
+    "python-binance>=1.0.34",
+    "scikit-build-core>=0.11.6",
+    "setuptools>=80.10.2",
+    "sqlalchemy>=2.0.46",
+    "structlog>=25.5.0",
+    "aurca_engine"
+]
+
+
+[tool.uv.sources]
+aurca_engine = { path = "src/infrastructure/adapters/binance/cpp_engine"}

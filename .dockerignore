@@ -1,0 +1,12 @@
+.venv/
+.git/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+**/*.pyd
+src/infrastructure/adapters/binance/cpp_engine/build/
+**/build/
+.env
+.uv
+**/*.so
