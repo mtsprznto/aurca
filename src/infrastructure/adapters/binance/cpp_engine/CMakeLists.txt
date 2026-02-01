@@ -1,21 +1,16 @@
-# src\infrastructure\adapters\binance\cpp_engine\CMakeLists.txt
-cmake_minimum_required(VERSION 3.18)
-project(aurca_engine)
-
-set(CMAKE_CXX_STANDARD 17)
+cmake_minimum_required(VERSION 3.15)
+project(aurca_engine_bin LANGUAGES CXX)
 
 find_package(pybind11 REQUIRED)
 
-# Definimos el módulo
-pybind11_add_module(aurca_engine 
-    aurca_engine/src/features.cpp 
-    aurca_engine/bindings.cpp
-)
-# ESTO ES LO QUE DA LA CERTEZA:
-# 1. Forzamos que el nombre del archivo sea exactamente aurca_engine.so (sin prefijos lib)
-set_target_properties(aurca_engine PROPERTIES 
-    OUTPUT_NAME "aurca_engine"
-    PREFIX ""
-)
-# 2. Instrucción de instalación que scikit-build-core usa para el empaquetado
-install(TARGETS aurca_engine LIBRARY DESTINATION aurca_engine)
+# Añadimos flags para enlazado estático (VITAL para Windows/MinGW)
+if(WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc -static-libstdc++ -static")
+endif()
+
+include_directories(aurca_engine)
+
+pybind11_add_module(aurca_engine_bin aurca_engine/bindings.cpp)
+
+# Aseguramos que el binario se instale en la raíz del paquete
+install(TARGETS aurca_engine_bin DESTINATION .)

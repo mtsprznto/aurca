@@ -14,8 +14,13 @@ except ImportError as e:
     logger.error("engine_not_found", error=str(e))
     raise
 
+logger = structlog.get_logger()
+logger.info("inspeccionando_motor", metodos=dir(aurca_engine))
 
 
+print(f"DEBUG: aurca_engine cargado desde {aurca_engine.__file__}")
+print(f"DEBUG: contenido de la carpeta del motor: {os.listdir(os.path.dirname(aurca_engine.__file__))}")
+print(f"DEBUG: atributos del motor: {dir(aurca_engine)}")
 
 class IndicatorService:
     @staticmethod

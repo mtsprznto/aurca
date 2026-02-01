@@ -1,17 +1,15 @@
-#src\infrastructure\adapters\binance\cpp_engine\pyproject.toml
+[project]
+name = "aurca_engine"  # <--- Usa guion bajo aquí
+version = "0.1.0"
+description = "Motor C++ para cálculos de Binance"
+requires-python = ">=3.12"
+dependencies = []
+
 [build-system]
-requires = ["scikit-build-core>=0.11", "pybind11"]
+requires = ["scikit-build-core", "pybind11"]
 build-backend = "scikit_build_core.build"
 
-[project]
-name = "aurca_engine"
-version = "0.1.0"
-
 [tool.scikit-build]
-# Esto fuerza a buscar en la carpeta actual
-wheel.packages = ["aurca_engine"]
-# AÑADE ESTO:
-sdist.include = ["aurca_engine/*"]
 wheel.expand-macos-universal-tags = true
-install.components = ["python_modules"]
-cmake.verbose = true
+wheel.install-dir = "aurca_engine"  # <--- Corregido: era wheel.install-dir
+cmake.build-type = "Release"        # <--- Vital para que el motor vuele en Binance
