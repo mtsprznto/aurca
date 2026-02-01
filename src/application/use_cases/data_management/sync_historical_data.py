@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import structlog
 from src.application.ports.output.market_repository import IMarketRepository
 from src.application.ports.output.market_data_storage import IMarketDataStorage
+from src.domain.services.feature_engineering.indicators import IndicatorService
 
 logger = structlog.get_logger()
 
@@ -16,6 +17,7 @@ class SyncHistoricalData:
     ):
         self.market_repo = market_repo
         self.storage_repo = storage_repo
+        self.indicator_service = IndicatorService()
 
     async def execute(self, symbol: str, interval: str, target_days: int = 365):
         logger.info("iniciando_sincronizacion_historical", symbol=symbol, interval=interval, target_days=target_days)
@@ -47,14 +49,29 @@ class SyncHistoricalData:
             if not candles or len(candles) <= 1:
                 break # Ya no hay más datos o llegamos al presente
 
-            await self.storage_repo.save_candles(candles)
+            
+            # --- NUEVA CAPA DE INGENIERÍA DE ATRIBUTOS ---
+            # Antes de guardar, pasamos las velas por el motor C++
+            candles_with_features = self.indicator_service.add_indicators(candles)
+            
+            # Guardamos las velas ya procesadas
+            await self.storage_repo.save_candles(candles_with_features)
+            
+            # --- DEBUGGER ---
+            if candles_with_features:
+                last_rsi = getattr(candles_with_features[-1], 'rsi', 'N/A')
+                logger.info("analysis_complete", symbol=symbol, rsi=last_rsi)
+            
             
             # Actualizamos el puntero para la siguiente petición:
             # Empezamos 1ms después del cierre de la última vela recibida
-            current_start_ts = int(candles[-1].timestamp.timestamp() * 1000) + 1
+            current_start_ts = int(candles_with_features[-1].timestamp.timestamp() * 1000) + 1
             
-            total_saved += len(candles)
-            logger.info("lote_procesado", symbol=symbol, acumulado=total_saved, ultimo=candles[-1].timestamp)
+            total_saved += len(candles_with_features)
+            logger.info("lote_procesado", symbol=symbol, acumulado=total_saved, ultimo=candles_with_features[-1].timestamp)
+
+
+
 
             # Respetar Rate Limit
             await asyncio.sleep(0.2)
