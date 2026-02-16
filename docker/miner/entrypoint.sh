@@ -38,12 +38,12 @@ if [ "$ALGO_VAL" == "RandomX" ]; then
     echo "[DEBUG] Modo CPU Detectado: Limpiando parámetros GPU..."
     sed -i "/lhr =/d" config.ini
     sed -i "/fanSpeed =/d" config.ini
-    # Forzamos un salto de línea antes de añadir cpuThreads para evitar el error de sintaxis
     printf "\ncpuThreads = %s\n" "$THREADS" >> config.ini
     
-    # IMPORTANTE: Para Binance Pool usando RandomX, 'coin = ETC' suele ser 
-    # más efectivo para que el pool reconozca el algoritmo si usas su stratum de ETC.
-    sed -i "s/coin = .*/coin = ETC/" config.ini
+    # --- CAMBIO CRUCIAL AQUÍ ---
+    # Para CPU en Binance Pool, eliminamos la línea 'coin' o la comentamos.
+    # Al no haber 'coin', Nanominer no valida la longitud de la wallet (tu usuario).
+    sed -i "/coin =/d" config.ini
 else
     echo "[DEBUG] Modo GPU Detectado: Validando bypass de Binance..."
     sed -i "s/coin = .*/coin = ETC/" config.ini

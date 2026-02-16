@@ -63,3 +63,13 @@ Para el agente, se necesita usar la interfaz WEB para la creación inicial de la
 - **Permisos:** Activa solo "Habilitar Lectura". No habilites trading ni retiros hasta que la fase de predicción tenga una precisión del 80% en Paper Trading.
 
 - **Activación:** Como indica tu texto, asegúrate de tener una verificación de identidad (KYC) completa y un depósito mínimo para activar la cuenta de API.
+
+-----
+
+# RUN
+
+### CPU
+
+~~~
+sudo docker compose -f docker-compose-cpu.yml up -d --build
+~~~
