@@ -38,13 +38,16 @@ if [ "$ALGO_VAL" == "RandomX" ]; then
     echo "[DEBUG] Modo CPU Detectado: Limpiando parámetros GPU..."
     sed -i "/lhr =/d" config.ini
     sed -i "/fanSpeed =/d" config.ini
-    if [ "$THREADS" != "0" ]; then
-        echo "cpuThreads = $THREADS" >> config.ini
-    fi
-    sed -i "s/coin = .*/coin = XMR/" config.ini
+    # Forzamos un salto de línea antes de añadir cpuThreads para evitar el error de sintaxis
+    printf "\ncpuThreads = %s\n" "$THREADS" >> config.ini
+    
+    # IMPORTANTE: Para Binance Pool usando RandomX, 'coin = ETC' suele ser 
+    # más efectivo para que el pool reconozca el algoritmo si usas su stratum de ETC.
+    sed -i "s/coin = .*/coin = ETC/" config.ini
 else
     echo "[DEBUG] Modo GPU Detectado: Validando bypass de Binance..."
     sed -i "s/coin = .*/coin = ETC/" config.ini
+    sed -i "/cpuThreads =/d" config.ini
 fi
 
 # --- AURCA DEBUGGER ---
