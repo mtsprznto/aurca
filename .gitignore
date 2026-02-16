@@ -1,7 +1,31 @@
-.env
-__pycache__/
-*.pem
-.venv
 .vscode
 
+# --- AURCA SECURITY ---
+# Archivos de configuración sensible
+.env
+.env.local
+
+# Llaves privadas y certificados
+*.pem
+*.key
+src/keys/
+
+# --- DOCKER & SISTEMA ---
+# Datos de la base de datos (no queremos subir gigas de DB)
+aurca_db_data/
+.docker/
+
+# --- PYTHON ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.uv/
+uv.lock
+.python-version
+
+# --- LOGS & MINER ---
+logs/
 log.txt
+*.log
+nanominer/

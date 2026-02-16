@@ -8,6 +8,15 @@ class Settings(BaseSettings):
     BINANCE_PUBLIC_KEY_PATH: str
     BINANCE_PRIVATE_KEY_PATH: str
 
+    # Binance Mining Config
+    BINANCE_MINING_USER: str = "aurcaV01"  # Nombre de la cuenta de minería
+    BINANCE_MINING_PASSWORD: str = "123456" # Password del worker (opcional)
+    
+    # Pools (Para monitoreo o configuración futura del motor C++)
+    BINANCE_POOL_1_URL: str | None = None
+    BINANCE_POOL_2_URL: str | None = None
+    BINANCE_POOL_3_URL: str | None = None
+
     # Database Config (Sin valores hardcodeados)
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str

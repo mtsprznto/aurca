@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 #include <vector>
 #include <iostream>
-#include "src/features.cpp"
+#include "src/features.hpp"
 
 namespace py = pybind11;
 

@@ -1,5 +1,5 @@
 [project]
-name = "aurca_engine"  # <--- Usa guion bajo aquí
+name = "aurca_engine"  
 version = "0.1.0"
 description = "Motor C++ para cálculos de Binance"
 requires-python = ">=3.12"
@@ -11,5 +11,5 @@ build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
-wheel.install-dir = "aurca_engine"  # <--- Corregido: era wheel.install-dir
-cmake.build-type = "Release"        # <--- Vital para que el motor vuele en Binance
+wheel.install-dir = "aurca_engine"  
+cmake.build-type = "Release"       

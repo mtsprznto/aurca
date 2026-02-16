@@ -3,7 +3,7 @@
 import os
 import sys
 import aurca_engine # Python ya lo encontrará si configuramos bien el entrypoint
-from typing import List
+from typing import Dict, List, Optional
 import structlog
 
 logger = structlog.get_logger()
@@ -23,6 +23,13 @@ print(f"DEBUG: contenido de la carpeta del motor: {os.listdir(os.path.dirname(au
 print(f"DEBUG: atributos del motor: {dir(aurca_engine)}")
 
 class IndicatorService:
+
+    def __init__(self):
+        # Buffer para tiempo real: { "BTCUSDT": [precios...], "ETHUSDT": [...] }
+        self._realtime_buffers: Dict[str, List[float]] = {}
+        self._window_size = 100 # Suficiente para un RSI de 14
+
+
     @staticmethod
     def compute_returns(closing_prices: List[float]) -> List[float]:
         """Calcula retornos logarítmicos usando el motor C++."""
@@ -69,3 +76,34 @@ class IndicatorService:
             logger.exception("error_calculando_indicadores_nativos", error=str(e))
         
         return candles
+    
+    def update_and_calculate_rsi(self, symbol: str, new_close: float) -> Optional[float]:
+        """
+        Actualiza el buffer de un símbolo y calcula el último RSI instantáneamente.
+        """
+        if symbol not in self._realtime_buffers:
+            self._realtime_buffers[symbol] = []
+
+        buffer = self._realtime_buffers[symbol]
+        buffer.append(new_close)
+
+        # Mantenemos el buffer optimizado para no consumir RAM innecesaria (Free Layer)
+        if len(buffer) > self._window_size:
+            buffer.pop(0)
+
+        if len(buffer) < 15: # Necesitamos al menos el periodo + 1
+            return None
+
+        try:
+            # Llamada al motor C++ con el buffer actual
+            rsi_results = aurca_engine.calculate_rsi(buffer, 14)
+            return rsi_results[-1] # Devolvemos solo el último valor calculado
+        except Exception as e:
+            logger.error("error_rt_rsi", symbol=symbol, error=str(e))
+            return None
+
+    def seed_buffer(self, symbol: str, prices: List[float]):
+        """Permite llenar el buffer inicial desde la DB tras el backfill."""
+        self._realtime_buffers[symbol] = prices[-self._window_size:]
+
+

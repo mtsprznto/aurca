@@ -1,5 +1,5 @@
 # src\infrastructure\adapters\database\repositories\timescale_repository.py
-from datetime import datetime
+from datetime import datetime, timezone
 import structlog
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 from src.domain.entities.market_data import Candle
 from src.application.ports.output.market_data_storage import IMarketDataStorage
-from src.infrastructure.adapters.database.models import Base, CandleModel
+from src.infrastructure.adapters.database.models import Base, CandleModel, MiningStatsModel
 from src.infrastructure.config import settings
 
 logger = structlog.get_logger()
@@ -25,11 +25,39 @@ class TimescaleRepository(IMarketDataStorage):
         """Crea tablas y convierte 'candles' en Hypertable"""
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-            # Comando específico de TimescaleDB
-            await conn.execute(text(
-                "SELECT create_hypertable('candles', 'timestamp', if_not_exists => TRUE);"
-            ))
-        logger.info("db_initialized_with_timescale")
+
+            # Configuración masiva de Hypertables para TimescaleDB
+            hypertables = {
+                "candles": "timestamp",
+                "trading_signals": "time",
+                "mining_stats": "timestamp"
+            }
+            for table, col in hypertables.items():
+                await conn.execute(text(
+                    f"SELECT create_hypertable('{table}', '{col}', if_not_exists => TRUE);"
+                ))
+            
+        logger.info("db_initialized_with_mining_and_trading_support")
+
+    async def save_signal(self, symbol: str, signal_type: str, price: float, rsi: float, timestamp: Optional[datetime] = None):
+        """Persistencia con timestamp real del evento"""
+        # Si no viene timestamp (fallback), usamos UTC actual
+        ts = timestamp or datetime.now(timezone.utc)
+        
+        async with self.async_session() as session:
+            query = text("""
+                INSERT INTO trading_signals (time, symbol, signal_type, price, rsi)
+                VALUES (:time, :symbol, :signal, :price, :rsi)
+            """)
+            await session.execute(query, {
+                "time": ts,
+                "symbol": symbol, 
+                "signal": signal_type, 
+                "price": price, 
+                "rsi": rsi
+            })
+            await session.commit()
+            logger.debug("signal_persisted", symbol=symbol, type=signal_type, ts=ts)
 
     async def save_candles(self, candles: List[Candle]):
         async with self.async_session() as session:
@@ -87,3 +115,15 @@ class TimescaleRepository(IMarketDataStorage):
                     timeframe=timeframe
                 ) for row in rows
             ]
+
+    async def save_mining_stats(self, worker: str, hashrate: float, coin: str):
+        async with self.async_session() as session:
+            # Corrección Pylance:
+            new_stat = MiningStatsModel(
+                timestamp=datetime.now(timezone.utc), 
+                worker_name=worker, 
+                hashrate=hashrate, 
+                coin=coin
+            )
+            session.add(new_stat)
+            await session.commit()

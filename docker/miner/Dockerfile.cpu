@@ -1,0 +1,17 @@
+# Usamos Ubuntu limpio para que pese menos en PCs viejos
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y wget tar coreutils && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Descarga de Nanominer (la versión linux sirve para ambos)
+RUN wget https://github.com/nanopool/nanominer/releases/download/v3.9.2/nanominer-linux-3.9.2.tar.gz \
+    && tar -xvf nanominer-linux-3.9.2.tar.gz \
+    && rm nanominer-linux-3.9.2.tar.gz
+
+COPY docker/miner/config.ini .
+COPY docker/miner/entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]

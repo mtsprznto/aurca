@@ -15,7 +15,9 @@ dependencies = [
     "setuptools>=80.10.2",
     "sqlalchemy>=2.0.46",
     "structlog>=25.5.0",
-    "aurca_engine"
+    "aurca_engine",
+    "debugpy>=1.8.20",
+    "cryptography",
 ]
 
 
@@ -23,4 +25,4 @@ dependencies = [
 aurca_engine = { path = "./src/infrastructure/adapters/binance/cpp_engine"}
 
 [tool.uv.extra-build-dependencies]
-aurca-engine = ["scikit-build-core", "pybind11"]
+aurca_engine = ["scikit-build-core", "pybind11"]

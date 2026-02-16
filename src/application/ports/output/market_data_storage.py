@@ -14,3 +14,13 @@ class IMarketDataStorage(ABC):
     async def get_last_candle_timestamp(self, symbol: str, timeframe: str)-> Optional[datetime]:
         """Busca la fecha de la última vela guardada para no duplicar"""
         pass
+
+    @abstractmethod
+    async def save_signal(self, symbol: str, signal_type: str, price: float, rsi: float, timestamp: datetime):
+        """Guarda una señal de trading generada por la estrategia"""
+        pass
+
+    @abstractmethod
+    async def save_mining_stats(self, worker: str, hashrate: float, coin: str):
+        """Guarda el rendimiento de la RTX 3060"""
+        pass

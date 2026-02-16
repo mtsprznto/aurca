@@ -2,22 +2,47 @@
 # El código Python que importa el .so/.pyd
 
 import asyncio
+from base64 import b64encode
+
+
+import time
 from binance import AsyncClient
 import structlog
 from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime
 
+import urllib
+
 from src.domain.entities.market_data import Candle
 from src.application.ports.output.market_repository import IMarketRepository
 from src.infrastructure.config import settings
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 logger = structlog.get_logger()
 
 class BinanceAdapter(IMarketRepository):
     def __init__(self):
         self.client = None
+
+    def _sign_ed25519(self, payload: str) -> str:
+        """Firma exacta según el estándar de Binance 2026"""
+        with open(settings.BINANCE_PRIVATE_KEY_PATH, "rb") as f:
+            private_key_data = f.read()
+            
+        # Cargar llave privada Ed25519
+        private_key = serialization.load_pem_private_key(
+            private_key_data,
+            password=None
+        )
+        
+        # Firmar el payload (query string)
+        signature = private_key.sign(payload.encode("utf-8"))
+        
+        # Binance requiere la firma en BASE64
+        return b64encode(signature).decode("utf-8")
 
     async def _get_client(self):
         """Inicializa el cliente asíncrono con llaves Ed25519"""
@@ -95,9 +120,55 @@ class BinanceAdapter(IMarketRepository):
         ]
         logger.info("symbols_retrieved", count=len(symbols))
         return symbols
-
     
+    async def get_mining_status(self, algo: str = "etchash"):
+        user_name = settings.BINANCE_MINING_USER
+        client = await self._get_client()
+        
+        params = {
+            'algo': algo,
+            'userName': user_name,
+            'recvWindow': 60000,
+            'timestamp': int(time.time() * 1000)
+        }
+        
+        try:
+            sorted_params = sorted(params.items())
+            query_string = urllib.parse.urlencode(sorted_params)
+            signature = self._sign_ed25519(query_string)
+            safe_signature = urllib.parse.quote(signature)
+            
+            url = f"https://api.binance.com/sapi/v1/mining/worker/list?{query_string}&signature={safe_signature}"
+
+            try:
+                async with client.session.get(
+                    url, 
+                    headers=client._get_headers()
+                ) as response:
+                    result = await response.json()
+                    
+                    if response.status == 200 and result.get('code') == 0:
+                        logger.info("mining_data_success", workers=len(result['data'].get('workerDatas', [])))
+                        return result
+                    else:
+                        logger.error("binance_api_mining_error", status=response.status, detail=result)
+                        return result
+            finally:
+                # Si solo vas a hacer una petición y cerrar (como en un cron), cierra aquí.
+                # Si es un loop, el cierre debe ir en el finalmente del bootstrap en main.py
+                pass
+        except Exception as e:
+            logger.error("mining_request_failed", error=str(e))
+            return None
+
     async def close(self):
         if self.client:
+            # Cerramos la sesión de aiohttp que vive dentro del cliente
             await self.client.close_connection()
-            logger.info("binance_client_closed")
+            # Forzamos un pequeño respiro para que el loop de eventos limpie los sockets
+            await asyncio.sleep(0.250) 
+            self.client = None # Reset para escalabilidad
+            logger.info("binance_client_closed_cleanly")
+
+
+    
