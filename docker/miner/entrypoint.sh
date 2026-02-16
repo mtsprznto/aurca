@@ -38,12 +38,15 @@ if [ "$ALGO_VAL" == "RandomX" ]; then
     echo "[DEBUG] Modo CPU Detectado: Limpiando parámetros GPU..."
     sed -i "/lhr =/d" config.ini
     sed -i "/fanSpeed =/d" config.ini
+    
+    # Aseguramos el salto de línea para evitar el error de sintaxis anterior
     printf "\ncpuThreads = %s\n" "$THREADS" >> config.ini
     
-    # --- CAMBIO CRUCIAL AQUÍ ---
-    # Para CPU en Binance Pool, eliminamos la línea 'coin' o la comentamos.
-    # Al no haber 'coin', Nanominer no valida la longitud de la wallet (tu usuario).
-    sed -i "/coin =/d" config.ini
+    # --- LA SOLUCIÓN DEFINITIVA ---
+    # Usamos 'coin = ETC' pero inyectamos el usuario de Binance de forma que 
+    # Nanominer no proteste por la longitud de la billetera.
+    # Si 'coin = ETC' falla por longitud, usaremos una moneda genérica:
+    sed -i "s/coin = .*/coin = Other/" config.ini
 else
     echo "[DEBUG] Modo GPU Detectado: Validando bypass de Binance..."
     sed -i "s/coin = .*/coin = ETC/" config.ini
