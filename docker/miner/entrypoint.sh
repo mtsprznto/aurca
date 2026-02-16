@@ -35,22 +35,27 @@ sed -i "s/lhr = .*/lhr = $LHR_VAL/" config.ini
 
 # 5. Lógica específica CPU vs GPU
 if [ "$ALGO_VAL" == "RandomX" ]; then
-    echo "[DEBUG] Modo CPU Detectado: Limpiando parámetros GPU..."
+    echo "[DEBUG] Modo CPU Detectado: Configurando para Binance Pool..."
     sed -i "/lhr =/d" config.ini
     sed -i "/fanSpeed =/d" config.ini
     
-    # Aseguramos el salto de línea para evitar el error de sintaxis anterior
+    # Aseguramos salto de línea y añadimos parámetros de protocolo
     printf "\ncpuThreads = %s\n" "$THREADS" >> config.ini
     
-    # --- LA SOLUCIÓN DEFINITIVA ---
-    # Usamos 'coin = ETC' pero inyectamos el usuario de Binance de forma que 
-    # Nanominer no proteste por la longitud de la billetera.
-    # Si 'coin = ETC' falla por longitud, usaremos una moneda genérica:
-    sed -i "s/coin = .*/coin = Other/" config.ini
+    # BINANCE FIX: Usamos moneda vacía y forzamos el protocolo de rig
+    sed -i "s/coin = .*/coin = /" config.ini
+    
+    # IMPORTANTE: Binance a veces requiere que el rig vaya pegado a la wallet con un punto
+    # incluso si hay una línea de rigName aparte.
+    sed -i "s/wallet = .*/wallet = $USER.$RIG/" config.ini
+    
+    # Añadimos parámetros de compatibilidad al final
+    echo "protocol = 1" >> config.ini
 else
     echo "[DEBUG] Modo GPU Detectado: Validando bypass de Binance..."
     sed -i "s/coin = .*/coin = ETC/" config.ini
     sed -i "/cpuThreads =/d" config.ini
+    sed -i "/protocol =/d" config.ini
 fi
 
 # --- AURCA DEBUGGER ---
