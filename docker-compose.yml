@@ -33,7 +33,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: ${GPU_COUNT:-0} # Ahora dinámico: 0 en CPU, 1 en GPU
               capabilities: [gpu]
     #volumes:
     #- ./src:/app/src
