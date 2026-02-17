@@ -41,7 +41,7 @@ class MiningEarningsModel(Base):
     """Para registrar lo que Binance Pool te deposita automáticamente"""
     __tablename__ = "mining_earnings"
 
-    timestamp: Mapped[datetime] = mapped_column(DateTime, primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     coin: Mapped[str] = mapped_column(String(10), primary_key=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(20, 8))
 

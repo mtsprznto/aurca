@@ -16,6 +16,21 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: aurca_viz
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - aurca_shared_net
+    depends_on:
+      - timescaledb
 
   agent:
     build:
@@ -76,6 +91,7 @@ services:
 
 volumes:
   aurca_db_data:
+  grafana_data:
 
 networks:
   aurca_shared_net:

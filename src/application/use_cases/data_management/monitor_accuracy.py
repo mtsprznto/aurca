@@ -1,5 +1,5 @@
 import structlog
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from src.application.ports.output.market_data_storage import IMarketDataStorage
 from src.application.ports.output.notification_port import NotificationPort
 
@@ -29,11 +29,11 @@ class MonitorAccuracy:
             # 2. Consultar el precio actual del símbolo para comparar
             # (En un modelo pro, compararíamos contra el precio N velas después)
             current_price = await self.db.get_last_price(sig.symbol)
-            
+            price_entry = sig.price
             is_correct = False
-            if sig.signal_type == "BUY" and current_price > sig.price_at_signal:
+            if sig.signal_type == "BUY" and current_price > price_entry:
                 is_correct = True
-            elif sig.signal_type == "SELL" and current_price < sig.price_at_signal:
+            elif sig.signal_type == "SELL" and current_price < price_entry:
                 is_correct = True
             
             if is_correct:

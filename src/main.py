@@ -2,6 +2,7 @@ import asyncio
 import structlog
 import urllib.parse
 from src.application.use_cases.data_management.monitor_accuracy import MonitorAccuracy
+from src.application.use_cases.data_management.sync_mining_earnings import SyncMiningEarnings
 from src.application.use_cases.data_management.sync_mining_stats import SyncMiningStats
 from src.application.use_cases.trading.evaluate_strategy import EvaluateStrategy
 from src.domain.services.feature_engineering.indicators import IndicatorService
@@ -53,11 +54,20 @@ async def bootstrap():
         notifier=notifier
     ) 
     mining_service = SyncMiningStats(b_inst, db_adapter)
+    mining_earnings_service = SyncMiningEarnings(
+        b_inst, 
+        db_adapter,
+        notifier=notifier
+    )
+
     thermal_monitor = ThermalAdapter(
         limit_temp=80.0, 
         safe_temp=50.0,
         notification_service=notifier
     )
+
+
+    #---------------------------------
     await notifier.send_message(
         "**Agente Aurca en línea**\n"
         f"• Modo: {'DEBUG' if settings.DEBUG_MODE else 'PROD'}\n"
@@ -79,6 +89,8 @@ async def bootstrap():
             while True:
                 try:
                     await mining_service.execute(algo="etchash", user=mining_user)
+
+                    await mining_earnings_service.execute(user=mining_user)
                 except Exception as e:
                     logger.error("error_en_loop_mineria", error=str(e))
                 await asyncio.sleep(900) # Cada 15 minutos

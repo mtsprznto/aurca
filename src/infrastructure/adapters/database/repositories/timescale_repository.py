@@ -25,12 +25,13 @@ class TimescaleRepository(IMarketDataStorage):
         """Crea tablas y convierte 'candles' en Hypertable"""
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-
+            
             # Configuración masiva de Hypertables para TimescaleDB
             hypertables = {
                 "candles": "timestamp",
                 "trading_signals": "time",
-                "mining_stats": "timestamp"
+                "mining_stats": "timestamp",
+                "mining_earnings": "timestamp"
             }
             for table, col in hypertables.items():
                 await conn.execute(text(
@@ -151,5 +152,40 @@ class TimescaleRepository(IMarketDataStorage):
             result = await session.execute(query, {"symbol": symbol})
             return result.scalar()
 
+    async def save_mining_earnings(self, data: dict):
+        """
+        Guarda las ganancias de minería usando la sesión asíncrona.
+        'data' esperado: {"timestamp": datetime, "coin": str, "amount": float}
+        """
+        async with self.async_session() as session:
+            # Aseguramos que el timestamp sea consciente de la zona horaria si no lo es
+            ts = data.get("timestamp")
+            if ts and ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
 
+            query = text("""
+                INSERT INTO mining_earnings (timestamp, coin, amount)
+                VALUES (:timestamp, :coin, :amount)
+                ON CONFLICT (timestamp, coin) DO NOTHING
+                RETURNING timestamp;
+            """)
+            
+            try:
+                result = await session.execute(query, {
+                    "timestamp": ts,
+                    "coin": data.get("coin"),
+                    "amount": data.get("amount")
+                })
+                await session.commit()
+                
+                # Si scalar() devuelve algo, es que se insertó. Si es None, es que hubo conflicto (DO NOTHING).
+                is_new = result.scalar() is not None
+                if is_new:
+                    logger.debug("mining_earnings_new_record", coin=data.get("coin"), amount=data.get("amount"))
+                return is_new
+            
+            except Exception as e:
+                await session.rollback()
+                logger.error("error_saving_mining_earnings", error=str(e))
+                raise
 

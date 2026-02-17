@@ -10,7 +10,7 @@ from binance import AsyncClient
 import structlog
 from typing import List, Optional
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 
 import urllib
 
@@ -106,6 +106,15 @@ class BinanceAdapter(IMarketRepository):
                 await asyncio.sleep(60) # Pausa de seguridad de un minuto si nos avisan
             raise e
 
+    async def get_asset_price(self, symbol: str) -> float:
+        """Obtiene el precio actual de un activo (ej: ETCUSDT)"""
+        try:
+            client = await self._get_client()
+            ticker = await client.get_symbol_ticker(symbol=symbol)
+            return float(ticker['price'])
+        except Exception:
+            return 0.0
+
     async def subscribe_to_realtime_quotes(self, symbol: str):
         # Esto lo implementaremos con el motor de C++ para máxima velocidad
         logger.warning("realtime_subscription_pending_cpp_engine", symbol=symbol)
@@ -161,6 +170,61 @@ class BinanceAdapter(IMarketRepository):
         except Exception as e:
             logger.error("mining_request_failed", error=str(e))
             return None
+
+    async def get_mining_earnings(self, user_name: str, algo: str = "etchash") -> List[dict]:
+        """
+        Obtiene el historial de pagos (Earnings) de Binance Pool.
+        """
+        client = await self._get_client()
+        
+        # Parámetros para la API de Binance
+        params = {
+            'algo': algo,
+            'userName': user_name,
+            'pageSize': 10, # Traemos los últimos 10 pagos
+            'recvWindow': 60000,
+            'timestamp': int(time.time() * 1000)
+        }
+        
+        try:
+            # 1. Preparar Query String y Firma Ed25519
+            sorted_params = sorted(params.items())
+            query_string = urllib.parse.urlencode(sorted_params)
+            signature = self._sign_ed25519(query_string)
+            safe_signature = urllib.parse.quote(signature)
+            
+            url = f"https://api.binance.com/sapi/v1/mining/payment/list?{query_string}&signature={safe_signature}"
+
+            # 2. Ejecución de la petición asíncrona
+            async with client.session.get(
+                url, 
+                headers=client._get_headers()
+            ) as response:
+                result = await response.json()
+                
+                if response.status == 200 and result.get('code') == 0:
+                    raw_data = result['data'].get('accountProfits', [])
+                    logger.info("earnings_retrieved_success", count=len(raw_data))
+                    
+                    # 3. Mapeo al formato que espera nuestro TimescaleRepository
+                    formatted_earnings = []
+                    for item in raw_data:
+                        raw_ts = item.get('time') or item.get('day')
+                        dt_object = datetime.fromtimestamp(float(raw_ts) / 1000.0, tz=timezone.utc)
+                        # Binance devuelve el tiempo en milisegundos
+                        formatted_earnings.append({
+                            "timestamp": dt_object,
+                            "coin": item.get('coinName', 'UNKNOWN'),
+                            "amount": float(item.get('profitAmount', 0))
+                        })
+                    return formatted_earnings
+                else:
+                    logger.error("binance_api_earnings_error", status=response.status, detail=result)
+                    return []
+                    
+        except Exception as e:
+            logger.error("earnings_request_failed", error=str(e))
+            return []
 
     async def close(self):
         if self.client:
