@@ -6,6 +6,7 @@ from src.application.use_cases.trading.evaluate_strategy import EvaluateStrategy
 from src.domain.services.feature_engineering.indicators import IndicatorService
 from src.infrastructure.adapters.binance.binance_adapter import BinanceAdapter
 from src.infrastructure.adapters.binance.websocket_adapter import BinanceWSAdapter
+from src.infrastructure.adapters.notifications.telegram_adapter import TelegramAdapter
 from src.infrastructure.adapters.sensors.temp_monitor import ThermalAdapter
 from src.infrastructure.config import settings
 from src.infrastructure.adapters.database.repositories.timescale_repository import TimescaleRepository
@@ -48,8 +49,20 @@ async def bootstrap():
         indicator_service=feature_service, 
         db_repo=db_adapter
     ) 
-    thermal_monitor = ThermalAdapter(limit_temp=80.0)
     mining_service = SyncMiningStats(b_inst, db_adapter)
+    notifier = TelegramAdapter()
+    thermal_monitor = ThermalAdapter(
+        limit_temp=80.0, 
+        safe_temp=50.0,
+        notification_service=notifier
+    )
+    await notifier.send_message(
+        "**Agente Aurca en línea**\n"
+        f"• Modo: {'DEBUG' if settings.DEBUG_MODE else 'PROD'}\n"
+        f"• Minería: {settings.BINANCE_MINING_USER}\n"
+        "• Monitor Térmico: Activo (80°C)"
+    )
+
     ws_tasks = []
 
     try:

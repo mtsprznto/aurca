@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     # Agent Config
     LOG_LEVEL: str = "INFO" # Valor por defecto razonable
 
+    # TELEGRAM
+    TELEGRAM_BOT_TOKEN: str | None = None
+    TELEGRAM_CHAT_ID: str | None = None
+
+    DEBUG_MODE: bool = False
+    
+
     @computed_field
     @property
     def DATABASE_URL(self) -> str:

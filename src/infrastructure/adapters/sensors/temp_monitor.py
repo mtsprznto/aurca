@@ -3,13 +3,21 @@ import subprocess
 import structlog
 import os
 
+from src.application.ports.output.notification_port import NotificationPort
+
 logger = structlog.get_logger()
 
 class ThermalAdapter:
-    def __init__(self, limit_temp=80.0, safe_temp=50.0):
+    def __init__(
+            self,
+            notification_service: NotificationPort, 
+            limit_temp=80.0, 
+            safe_temp=50.0
+        ):
         self.limit_temp = limit_temp
         self.safe_temp = safe_temp
         self.is_miner_running = True # Asumimos que inicia encendido
+        self.notifier = notification_service
 
     async def check_and_protect(self):
         try:
@@ -19,6 +27,10 @@ class ThermalAdapter:
             # 1. EMERGENCIA: Apagar minería
             if current_temp >= self.limit_temp and self.is_miner_running:
                 logger.critical("TEMPERATURA_CRITICA_APAGANDO_MINERO", temp=current_temp, limit=self.limit_temp)
+                #--------------------------------------------------------
+                msg = f"🔥 ¡EMERGENCIA TÉRMICA! GPU a {current_temp}°C. Deteniendo minero..."
+                await self.notifier.send_message(msg)
+                #--------------------------------------------------------
                 # Ejecutamos el stop del contenedor específico
                 result = subprocess.run(["docker", "stop", "aurca_miner"], capture_output=True, text=True)
                 if result.returncode == 0:
@@ -27,6 +39,10 @@ class ThermalAdapter:
                 return True, current_temp
             if current_temp <= self.safe_temp and not self.is_miner_running:
                 logger.info("TEMPERATURA_SEGURA_REINICIANDO_MINERO", temp=current_temp, target=self.safe_temp)
+                #--------------------------------------------------------
+                msg = f"❄️ Temperatura normalizada ({current_temp}°C). Reiniciando minero."
+                await self.notifier.send_message(msg)
+                #--------------------------------------------------------
                 result = subprocess.run(["docker", "start", "aurca_miner"], capture_output=True, text=True)
                 if result.returncode == 0:
                     self.is_miner_running = True
