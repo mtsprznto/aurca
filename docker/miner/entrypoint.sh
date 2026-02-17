@@ -3,7 +3,7 @@ set -e
 
 # --- AURCA MODULAR ENGINE ---
 # Variables con valores por defecto para evitar fallos
-USER=${BINANCE_USER:-aurcaV01}
+USER=${BINANCE_MINING_USER:-aurcaV01}
 RIG=${RIG_NAME:-rig_generic}
 ALGO_VAL=${ALGO:-Etchash}
 THREADS=${CPU_THREADS:-0}
