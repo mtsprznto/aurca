@@ -37,6 +37,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     container_name: aurca_agent
+    restart: always
     volumes:
       - /sys:/sys:ro
       - /var/run/docker.sock:/var/run/docker.sock
