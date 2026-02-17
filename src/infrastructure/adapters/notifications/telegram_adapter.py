@@ -34,3 +34,21 @@ class TelegramAdapter(NotificationPort):
         except Exception as e:
             logger.error("telegram_send_failed", error=str(e))
             return False
+        
+    async def send_trade_alert(self, symbol: str, signal: str, price: float, analysis: dict):
+        try:
+            emoji = "🚀" if signal == "BUY" else "🔻"
+            text = (
+                f"{emoji} **NUEVA SEÑAL DETECTADA** {emoji}\n\n"
+                f"**Symbol:** `{symbol}`\n"
+                f"**Signal:** `{signal}`\n"
+                f"**Price:** `${price:,.2f}`\n\n"
+                f"📊 **Engine Analysis (C++):**\n"
+                f"• RSI: `{analysis.get('rsi', 0):.2f}`\n"
+                f"• Returns: `{analysis.get('returns', 0):.4f}%`"
+            )
+            return await self.send_message(text)
+        except Exception as e:
+            logger.error("telegram_send_failed", error=str(e))
+            return False
+    

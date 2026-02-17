@@ -1,5 +1,5 @@
 # src\infrastructure\adapters\database\repositories\timescale_repository.py
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import structlog
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -117,13 +117,9 @@ class TimescaleRepository(IMarketDataStorage):
             ]
 
     async def save_mining_stats(self, worker: str, hashrate: float, coin: str, timestamp: datetime = None):
-        
 
         async with self.async_session() as session:
-            if timestamp is None:
-                db_time = datetime.now() 
-            else:
-                db_time = timestamp.replace(tzinfo=None)
+            db_time = timestamp or datetime.now(timezone.utc)
             
             # Corrección Pylance:
             new_stat = MiningStatsModel(
@@ -134,3 +130,26 @@ class TimescaleRepository(IMarketDataStorage):
             )
             session.add(new_stat)
             await session.commit()
+
+    async def get_recent_signals(self, hours: int):
+        """FIX: Se reemplaza utcnow() por now(timezone.utc)"""
+        async with self.async_session() as session: # Corregido de self.Session a self.async_session
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+            
+            # Nota: Asegúrate de que SignalModel esté importado de tus modelos
+            # result = await session.execute(select(SignalModel).where(SignalModel.time >= cutoff))
+            # return result.scalars().all()
+            
+            # Si prefieres seguir con text() por consistencia:
+            query = text("SELECT * FROM trading_signals WHERE time >= :cutoff")
+            result = await session.execute(query, {"cutoff": cutoff})
+            return result.fetchall()
+
+    async def get_last_price(self, symbol: str):
+        async with self.async_session() as session:
+            query = text("SELECT close FROM candles WHERE symbol = :symbol ORDER BY timestamp DESC LIMIT 1")
+            result = await session.execute(query, {"symbol": symbol})
+            return result.scalar()
+
+
+

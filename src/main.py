@@ -1,6 +1,7 @@
 import asyncio
 import structlog
 import urllib.parse
+from src.application.use_cases.data_management.monitor_accuracy import MonitorAccuracy
 from src.application.use_cases.data_management.sync_mining_stats import SyncMiningStats
 from src.application.use_cases.trading.evaluate_strategy import EvaluateStrategy
 from src.domain.services.feature_engineering.indicators import IndicatorService
@@ -44,13 +45,14 @@ async def bootstrap():
     # 1. Instanciamos adaptadores
     b_inst = BinanceAdapter()
     db_adapter = TimescaleRepository()
+    notifier = TelegramAdapter()
     feature_service = IndicatorService()
     trading_strategy = EvaluateStrategy(
         indicator_service=feature_service, 
-        db_repo=db_adapter
+        db_repo=db_adapter,
+        notifier=notifier
     ) 
     mining_service = SyncMiningStats(b_inst, db_adapter)
-    notifier = TelegramAdapter()
     thermal_monitor = ThermalAdapter(
         limit_temp=80.0, 
         safe_temp=50.0,
@@ -103,11 +105,28 @@ async def bootstrap():
                 
                 await asyncio.sleep(30) # Vigilancia cada 30 seg
 
+        async def accuracy_monitor_loop():
+            logger.info("iniciando_health_check_predictivo_programado")
+            # Instanciamos el monitor
+            monitor = MonitorAccuracy(db_repo=db_adapter, notifier=notifier)
+            while True:
+                try:
+                    await monitor.execute()
+                except Exception as e:
+                    logger.error("error_accuracy_monitor", error=str(e))
+                
+                # Esperar 24 horas (u 86400 segundos)
+                # Para probarlo ahora mismo, puedes poner 60 segundos
+                await asyncio.sleep(86400)
+
+        #------------------------------------
         # Lanzamos la tarea de minería al fondo
         mining_task = asyncio.create_task(mining_worker_loop())
         ws_tasks.append(mining_task)
         thermal_task = asyncio.create_task(thermal_worker_loop())
         ws_tasks.append(thermal_task)
+        accuracy_task = asyncio.create_task(accuracy_monitor_loop())
+        ws_tasks.append(accuracy_task) 
         # -----------------------------------
 
         # 3. Configuramos el Caso de Uso

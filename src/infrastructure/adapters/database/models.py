@@ -11,7 +11,7 @@ class CandleModel(Base):
     __tablename__ = "candles"
 
     # TimescaleDB necesita el timestamp como parte de la llave primaria lógica
-    timestamp: Mapped[datetime] = mapped_column(DateTime, primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     symbol: Mapped[str] = mapped_column(String(20), primary_key=True)
     timeframe: Mapped[str] = mapped_column(String(10), primary_key=True)
     
@@ -30,7 +30,7 @@ class SignalModel(Base):
     __tablename__ = "trading_signals"
 
     # Time-series primary key para TimescaleDB
-    time: Mapped[datetime] = mapped_column(DateTime, primary_key=True)
+    time: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     symbol: Mapped[str] = mapped_column(String(20), primary_key=True)
     
     signal_type: Mapped[str] = mapped_column(String(10)) # BUY/SELL
@@ -49,7 +49,7 @@ class MiningStatsModel(Base):
     """Monitoreo del rendimiento de tu RTX 3060"""
     __tablename__ = "mining_stats"
 
-    timestamp: Mapped[datetime] = mapped_column(DateTime, primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     worker_name: Mapped[str] = mapped_column(String(50), primary_key=True) # ej: "alan.001"
     
     hashrate: Mapped[Decimal] = mapped_column(Numeric(20, 8)) # MH/s
