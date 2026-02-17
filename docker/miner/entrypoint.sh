@@ -35,22 +35,18 @@ sed -i "s/lhr = .*/lhr = $LHR_VAL/" config.ini
 
 # 5. Lógica específica CPU vs GPU
 if [ "$ALGO_VAL" == "RandomX" ]; then
-    echo "[DEBUG] Modo CPU Detectado: Configurando para Binance Pool..."
+    echo "[DEBUG] Modo CPU Detectado: Configurando para Pool Multimoneda (Unmineable)"
     sed -i "/lhr =/d" config.ini
     sed -i "/fanSpeed =/d" config.ini
-    
-    # Aseguramos salto de línea y añadimos parámetros de protocolo
     printf "\ncpuThreads = %s\n" "$THREADS" >> config.ini
     
-    # BINANCE FIX: Usamos moneda vacía y forzamos el protocolo de rig
-    sed -i "s/coin = .*/coin = /" config.ini
-    
-    # IMPORTANTE: Binance a veces requiere que el rig vaya pegado a la wallet con un punto
-    # incluso si hay una línea de rigName aparte.
+    # IMPORTANTE: En Unmineable la 'wallet' debe llevar el formato MONEDA:DIRECCION
+    # Ejemplo en tu .env: BINANCE_USER=ETC:0x123456789...
     sed -i "s/wallet = .*/wallet = $USER.$RIG/" config.ini
+    sed -i "s/coin = .*/coin = ETC/" config.ini
     
-    # Añadimos parámetros de compatibilidad al final
-    echo "protocol = 1" >> config.ini
+    # Cambiamos dinámicamente al pool que sí acepta CPUs
+    sed -i "s|pool1 = .*|pool1 = rx.unmineable.com:3333|" config.ini
 else
     echo "[DEBUG] Modo GPU Detectado: Validando bypass de Binance..."
     sed -i "s/coin = .*/coin = ETC/" config.ini
