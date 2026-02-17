@@ -23,6 +23,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     container_name: aurca_agent
+    restart: always
     privileged: true
     depends_on:
       timescaledb:
