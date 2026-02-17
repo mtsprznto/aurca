@@ -22,6 +22,9 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     container_name: aurca_agent
+    volumes:
+      - /sys:/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     privileged: true
     depends_on:
       timescaledb:
@@ -33,13 +36,8 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: ${GPU_COUNT:-0} # Ahora dinámico: 0 en CPU, 1 en GPU
-              capabilities: [gpu]
-    #volumes:
-    #- ./src:/app/src
-    #- ./src/keys:/app/src/keys:ro
-    # Solo dejamos explícita la URL de la DB si queremos sobrescribir el host local 
-    # por el nombre del servicio de Docker
+              count: ${GPU_COUNT:-1} # Ahora dinámico: 0 en CPU, 1 en GPU
+              capabilities: [gpu, utility]
     environment:
       - PYTHONPATH=/app:/app/src
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@{DB_HOST}:5432/${POSTGRES_DB}

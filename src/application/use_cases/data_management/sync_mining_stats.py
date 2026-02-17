@@ -1,4 +1,5 @@
 # src\application\use_cases\data_management\sync_mining_stats.py
+from datetime import datetime
 import structlog
 from src.application.ports.output.market_repository import IMarketRepository
 from src.application.ports.output.market_data_storage import IMarketDataStorage
@@ -16,6 +17,7 @@ class SyncMiningStats:
         logger.debug("raw_mining_response", payload=data)
 
         if data and isinstance(data, dict) and data.get('code') == 0:
+            now_naive = datetime.now()
             # Usamos .get() en cascada para total seguridad
             inner_data = data.get('data') or {}
             workers = inner_data.get('workerDatas') or []
@@ -27,12 +29,13 @@ class SyncMiningStats:
             for worker in workers:
                 # Aquí también usamos .get() por si acaso workerName o hashrate faltan
                 w_name = worker.get('workerName', 'unknown')
-                w_hash = worker.get('hashrate', 0)
+                w_hash = worker.get('dayHashRate', 0)
                 
                 await self.db.save_mining_stats(
                     worker=w_name,
                     hashrate=float(w_hash),
-                    coin=algo.upper()
+                    coin=algo.upper(),
+                    timestamp=now_naive
                 )
                 logger.info("mining_stats_synced", worker=w_name, hr=w_hash)
         else:

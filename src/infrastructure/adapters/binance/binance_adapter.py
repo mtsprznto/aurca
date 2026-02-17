@@ -26,6 +26,7 @@ logger = structlog.get_logger()
 class BinanceAdapter(IMarketRepository):
     def __init__(self):
         self.client = None
+        self._lock = asyncio.Lock()
 
     def _sign_ed25519(self, payload: str) -> str:
         """Firma exacta según el estándar de Binance 2026"""
@@ -46,21 +47,21 @@ class BinanceAdapter(IMarketRepository):
 
     async def _get_client(self):
         """Inicializa el cliente asíncrono con llaves Ed25519"""
-        if self.client is None:
-            # Leemos el contenido de la llave privada (debe ser el string del PEM)
-            try:
-                with open(settings.BINANCE_PRIVATE_KEY_PATH, "r") as f:
-                    private_key_content = f.read()
-                
-                # La librería espera 'private_key', NO 'private_key_path'
-                self.client = await AsyncClient.create(
-                    api_key=settings.BINANCE_API_KEY,
-                    private_key=private_key_content
-                )
-                logger.debug("cliente_creado_con_exito")
-            except FileNotFoundError:
-                logger.error("archivo_llave_no_encontrado", path=settings.BINANCE_PRIVATE_KEY_PATH)
-                raise
+        async with self._lock:
+            if self.client is None:
+                # Leemos el contenido de la llave privada (debe ser el string del PEM)
+                try:
+                    with open(settings.BINANCE_PRIVATE_KEY_PATH, "r") as f:
+                        private_key_content = f.read()
+                    
+                    self.client = await AsyncClient.create(
+                        api_key=settings.BINANCE_API_KEY,
+                        private_key=private_key_content
+                    )
+                    logger.debug("cliente_creado_con_exito")
+                except FileNotFoundError:
+                    logger.error("archivo_llave_no_encontrado", path=settings.BINANCE_PRIVATE_KEY_PATH)
+                    raise
         return self.client
 
     async def get_historical_candles(
@@ -146,7 +147,7 @@ class BinanceAdapter(IMarketRepository):
                     headers=client._get_headers()
                 ) as response:
                     result = await response.json()
-                    
+
                     if response.status == 200 and result.get('code') == 0:
                         logger.info("mining_data_success", workers=len(result['data'].get('workerDatas', [])))
                         return result
@@ -163,12 +164,13 @@ class BinanceAdapter(IMarketRepository):
 
     async def close(self):
         if self.client:
-            # Cerramos la sesión de aiohttp que vive dentro del cliente
+            logger.info("cerrando_sesion_final_binance...")
+            # Cerramos la sesión interna de aiohttp explícitamente
+            if self.client.session:
+                await self.client.session.close()
             await self.client.close_connection()
-            # Forzamos un pequeño respiro para que el loop de eventos limpie los sockets
             await asyncio.sleep(0.250) 
-            self.client = None # Reset para escalabilidad
-            logger.info("binance_client_closed_cleanly")
+            self.client = None
 
 
     

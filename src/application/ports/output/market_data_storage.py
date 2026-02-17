@@ -21,6 +21,6 @@ class IMarketDataStorage(ABC):
         pass
 
     @abstractmethod
-    async def save_mining_stats(self, worker: str, hashrate: float, coin: str):
+    async def save_mining_stats(self, worker: str, hashrate: float, coin: str , timestamp: datetime = None):
         """Guarda el rendimiento de la RTX 3060"""
         pass

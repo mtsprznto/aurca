@@ -6,6 +6,7 @@ from src.application.use_cases.trading.evaluate_strategy import EvaluateStrategy
 from src.domain.services.feature_engineering.indicators import IndicatorService
 from src.infrastructure.adapters.binance.binance_adapter import BinanceAdapter
 from src.infrastructure.adapters.binance.websocket_adapter import BinanceWSAdapter
+from src.infrastructure.adapters.sensors.temp_monitor import ThermalAdapter
 from src.infrastructure.config import settings
 from src.infrastructure.adapters.database.repositories.timescale_repository import TimescaleRepository
 from src.application.use_cases.data_management.sync_historical_data import SyncHistoricalData
@@ -47,6 +48,7 @@ async def bootstrap():
         indicator_service=feature_service, 
         db_repo=db_adapter
     ) 
+    thermal_monitor = ThermalAdapter(limit_temp=80.0)
     mining_service = SyncMiningStats(b_inst, db_adapter)
     ws_tasks = []
 
@@ -66,9 +68,33 @@ async def bootstrap():
                     logger.error("error_en_loop_mineria", error=str(e))
                 await asyncio.sleep(900) # Cada 15 minutos
 
+        # --- B. BACKGROUND TASK: PROTECTOR TÉRMICO ---
+        async def thermal_worker_loop():
+            logger.info("iniciando_protector_termico", limit=thermal_monitor.limit_temp)
+            while True:
+                try:
+                    is_critical, temp = await thermal_monitor.check_and_protect()
+                    
+                    # Log de latido para confirmar que el monitor está vivo
+                    if temp > 0:
+                        status_msg = "EN_ALERTA" if is_critical else "NORMAL"
+                        logger.info("thermal_status", current_temp=temp, status=status_msg)
+                    
+                    if is_critical:
+                        logger.warning("EMER" \
+                        "GENCIA_TERMICA_DETECCION", temp=temp)
+                        # Aquí podrías añadir un sistema de notificación (Telegram/Email)
+                        
+                except Exception as e:
+                    logger.error("thermal_loop_error", error=str(e))
+                
+                await asyncio.sleep(30) # Vigilancia cada 30 seg
+
         # Lanzamos la tarea de minería al fondo
         mining_task = asyncio.create_task(mining_worker_loop())
         ws_tasks.append(mining_task)
+        thermal_task = asyncio.create_task(thermal_worker_loop())
+        ws_tasks.append(thermal_task)
         # -----------------------------------
 
         # 3. Configuramos el Caso de Uso
@@ -78,6 +104,7 @@ async def bootstrap():
         )
         # Sincronizamos (Productor)
         symbols_to_sync = (await b_inst.get_trading_symbols())[:3]
+        await asyncio.sleep(0)
 
         for symbol in symbols_to_sync:
             await sync_service.execute(symbol=symbol, interval="1h", target_days=30)
@@ -113,22 +140,26 @@ async def bootstrap():
         raise # Re-lanzamos para que el bloque de abajo también lo capture si es necesario
 
     finally:
-        # 5. CIERRE LIMPIO DE RECURSOS
-        # Esto se ejecuta SIEMPRE, falle o no el código de arriba
         logger.info("cerrando_conexiones_del_agente...")
+        
+        # Cancelar tareas de fondo
         for task in ws_tasks:
             if not task.done():
                 task.cancel()
+        
+        # Esperar a que las tareas reconozcan la cancelación
         if ws_tasks:
             await asyncio.gather(*ws_tasks, return_exceptions=True)
-            
+        
+        # AHORA cerramos los adaptadores
         if b_inst:
-            # Cerramos Binance (evita el error de Unclosed Client Session)
-            await b_inst.close()
-        if db_adapter and hasattr(db_adapter, 'engine'):
+            await b_inst.close() # <--- Llamará al nuevo método mejorado
+            
+        if db_adapter:
+            # Si usas SQLAlchemy AsyncEngine
             await db_adapter.engine.dispose()
+            
         logger.info("conexiones_cerradas_correctamente")
-
 
 if __name__ == "__main__":
     try:

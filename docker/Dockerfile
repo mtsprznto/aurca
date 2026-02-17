@@ -51,8 +51,12 @@ ENV TZ=America/Santiago
 # Solo necesitamos la librería estándar de C++ para ejecutar
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
-    build-essential cmake ninja-build && \
-    add-apt-repository ppa:deadsnakes/ppa -y && \
+    build-essential \
+    cmake \ 
+    ninja-build \
+    docker.io \
+    && add-apt-repository \
+    ppa:deadsnakes/ppa -y && \
     apt-get update && apt-get install -y --no-install-recommends \
     python3.12 python3.12-venv python3.12-dev libstdc++6 && \
     rm -rf /var/lib/apt/lists/*

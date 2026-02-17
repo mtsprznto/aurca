@@ -116,11 +116,18 @@ class TimescaleRepository(IMarketDataStorage):
                 ) for row in rows
             ]
 
-    async def save_mining_stats(self, worker: str, hashrate: float, coin: str):
+    async def save_mining_stats(self, worker: str, hashrate: float, coin: str, timestamp: datetime = None):
+        
+
         async with self.async_session() as session:
+            if timestamp is None:
+                db_time = datetime.now() 
+            else:
+                db_time = timestamp.replace(tzinfo=None)
+            
             # Corrección Pylance:
             new_stat = MiningStatsModel(
-                timestamp=datetime.now(timezone.utc), 
+                timestamp=db_time, 
                 worker_name=worker, 
                 hashrate=hashrate, 
                 coin=coin
