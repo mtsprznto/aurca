@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     BINANCE_POOL_2_URL: str | None = None
     BINANCE_POOL_3_URL: str | None = None
 
+    RIG_NAME: str = "RigPrincipal"
+
     # Database Config (Sin valores hardcodeados)
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
