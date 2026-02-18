@@ -1,4 +1,5 @@
 import asyncio
+import random
 import structlog
 import urllib.parse
 from src.application.use_cases.data_management.monitor_accuracy import MonitorAccuracy
@@ -41,6 +42,9 @@ async def check_performance_context():
 
 async def bootstrap():
     """Inicialización de la aplicación e inyección de dependencias"""
+    
+    await asyncio.sleep(random.uniform(1, 5))
+
     await check_performance_context()
 
     # 1. Instanciamos adaptadores
