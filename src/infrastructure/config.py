@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import SecretStr, computed_field
+from pydantic import Field, SecretStr, computed_field
 
 class Settings(BaseSettings):
     # Binance Config
@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     # Binance Mining Config
     BINANCE_MINING_USER: str = "aurcaV01"  # Nombre de la cuenta de minería
     BINANCE_MINING_PASSWORD: str = "123456" # Password del worker (opcional)
-    
+
+    MINING_ALGO: str = Field("etchash", alias="ALGO")
+
     # Pools (Para monitoreo o configuración futura del motor C++)
     BINANCE_POOL_1_URL: str | None = None
     BINANCE_POOL_2_URL: str | None = None

@@ -95,10 +95,11 @@ async def bootstrap():
         # --- A. BACKGROUND TASK: MINERÍA ---
         async def mining_worker_loop():
             mining_user = settings.BINANCE_MINING_USER
+            mining_algo = settings.MINING_ALGO
             logger.info("iniciando_monitor_mineria", user=mining_user)
             while True:
                 try:
-                    await mining_service.execute(algo="etchash", user=mining_user)
+                    await mining_service.execute(algo=mining_algo, user=mining_user)
 
                     await mining_earnings_service.execute(user=mining_user)
                 except Exception as e:
