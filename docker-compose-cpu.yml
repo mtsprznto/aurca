@@ -1,22 +1,5 @@
 # docker-compose-cpu.yml
 services:
-  timescaledb:
-    image: timescale/timescaledb:latest-pg16
-    container_name: aurca_db
-    restart: always
-    # Docker Compose inyectará automáticamente las variables del .env aquí
-    env_file: .env 
-    ports:
-      - "5433:5432"
-    volumes:
-      - aurca_db_data:/var/lib/postgresql/data
-    networks:
-      - aurca_shared_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
   agent:
     build:
