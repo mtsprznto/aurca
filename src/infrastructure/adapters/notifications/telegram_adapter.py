@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import structlog
 from src.application.ports.output.notification_port import NotificationPort
@@ -12,6 +13,10 @@ class TelegramAdapter(NotificationPort):
         #self.base_url = f"https://api.telegram.org/bot{self.token}/sendMessage"
         self.enabled = all([self.token, self.chat_id])
         
+        self._lock = asyncio.Lock()
+        self._last_sent = 0
+        self._client = httpx.AsyncClient(timeout=10.0) # Cliente persistente
+
         if self.enabled:
             self.base_url = f"https://api.telegram.org/bot{self.token}/sendMessage"
         else:
@@ -21,19 +26,34 @@ class TelegramAdapter(NotificationPort):
         if not self.enabled:
             return False
         
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                payload = {
-                    "chat_id": self.chat_id,
-                    "text": f"**Aurca Node:**\n{message}",
-                    "parse_mode": "Markdown"
-                }
-                response = await client.post(self.base_url, json=payload)
-                response.raise_for_status()
-                return True
-        except Exception as e:
-            logger.error("telegram_send_failed", error=str(e))
-            return False
+        async with self._lock:
+            try:
+                now = asyncio.get_event_loop().time()
+                wait = 1.5 - (now - self._last_sent)
+                if wait > 0:
+                    await asyncio.sleep(wait)
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    payload = {
+                        "chat_id": self.chat_id,
+                        "text": f"**Aurca RIG: {settings.RIG_NAME}: **\n{message}",
+                        "parse_mode": "Markdown"
+                    }
+                    for attempt in range(3):
+                        response = await self._client.post(self.base_url, json=payload)
+                        
+                        if response.status_code == 429:
+                            retry_after = response.json().get("parameters", {}).get("retry_after", 5)
+                            logger.warning("telegram_rate_limited", retry_after=retry_after)
+                            await asyncio.sleep(retry_after + 1)
+                            continue
+                        
+                        response.raise_for_status()
+                        self._last_sent = asyncio.get_event_loop().time()
+                        return True
+                    
+            except Exception as e:
+                logger.error("telegram_send_failed", error=str(e))
+                return False
         
     async def send_trade_alert(self, symbol: str, signal: str, price: float, analysis: dict):
         try:
