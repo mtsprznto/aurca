@@ -11,7 +11,7 @@ services:
     env_file: .env
     environment:
       - PYTHONPATH=/app:/app/src
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_HOST}:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_HOST}:${DB_PORT}/${POSTGRES_DB}
       - DEBUG_MODE=true
     networks:
       - aurca_shared_net # <--- UNIR A LA RED
