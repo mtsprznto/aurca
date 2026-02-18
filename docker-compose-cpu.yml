@@ -8,9 +8,6 @@ services:
     container_name: aurca_agent
     restart: always
     privileged: true
-    depends_on:
-      timescaledb:
-        condition: service_healthy
     # El agente también lee todo el .env
     env_file: .env
     #volumes:
