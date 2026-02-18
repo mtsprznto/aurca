@@ -2,6 +2,7 @@
 
 import structlog
 from datetime import datetime
+from src.infrastructure.config import settings
 
 logger = structlog.get_logger()
 
@@ -36,7 +37,8 @@ class SyncMiningEarnings:
                     value_usd = amount * price_usd
                     # Enviar mensaje profesional a Telegram
                     msg = (
-                        "**Nuevo Pago de Minería**\n"
+                        "💰 **Nuevo Pago de Minería**\n"
+                        f"• Worker: `{settings.RIG_NAME}`\n"
                         f"• Activo: `{record['coin']}`\n"
                         f"• Cantidad: `{record['amount']:.8f}`\n"
                         f"• Valor: `${value_usd:.2f} USD` (aprox)\n"

@@ -42,7 +42,8 @@ async def check_performance_context():
 
 async def bootstrap():
     """Inicialización de la aplicación e inyección de dependencias"""
-    
+    is_host = settings.NOTIFY_STARTUP
+
     await asyncio.sleep(random.uniform(1, 5))
 
     await check_performance_context()
@@ -52,10 +53,11 @@ async def bootstrap():
     db_adapter = TimescaleRepository()
     notifier = TelegramAdapter()
     feature_service = IndicatorService()
+    
     trading_strategy = EvaluateStrategy(
         indicator_service=feature_service, 
         db_repo=db_adapter,
-        notifier=notifier
+        notifier=notifier if is_host else None
     ) 
     mining_service = SyncMiningStats(b_inst, db_adapter)
     mining_earnings_service = SyncMiningEarnings(
@@ -70,14 +72,18 @@ async def bootstrap():
         notification_service=notifier
     )
 
+    
 
     #---------------------------------
-    await notifier.send_message(
-        "**Agente Aurca en línea**\n"
-        f"• Modo: {'DEBUG' if settings.DEBUG_MODE else 'PROD'}\n"
-        f"• Minería: {settings.BINANCE_MINING_USER}\n"
-        "• Monitor Térmico: Activo (80°C)"
-    )
+    if is_host:
+        await notifier.send_message(
+            f"**Agente Aurca en línea** ({settings.RIG_NAME})\n"
+            f"• Modo: {'DEBUG' if settings.DEBUG_MODE else 'PROD'}\n"
+            f"• Minería: {settings.BINANCE_MINING_USER}\n"
+            "• Monitor Térmico: Activo (80°C)"
+        )
+    else:
+        logger.info("startup_notification_disabled", worker=settings.RIG_NAME)
 
     ws_tasks = []
 

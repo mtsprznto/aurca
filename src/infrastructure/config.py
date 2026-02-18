@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     # TELEGRAM
     TELEGRAM_BOT_TOKEN: str | None = None
     TELEGRAM_CHAT_ID: str | None = None
+    NOTIFY_STARTUP: bool = True
 
     DEBUG_MODE: bool = False
     
