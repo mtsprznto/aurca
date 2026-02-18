@@ -20,7 +20,7 @@ class TelegramAdapter(NotificationPort):
     async def send_message(self, message: str):
         if not self.enabled:
             return False
-
+        
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 payload = {

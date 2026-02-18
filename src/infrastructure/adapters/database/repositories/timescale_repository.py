@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 from src.domain.entities.market_data import Candle
 from src.application.ports.output.market_data_storage import IMarketDataStorage
-from src.infrastructure.adapters.database.models import Base, CandleModel, MiningStatsModel
+from src.infrastructure.adapters.database.models import Base, CandleModel, MiningStatsModel, SignalModel
 from src.infrastructure.config import settings
 
 logger = structlog.get_logger()
@@ -44,28 +44,33 @@ class TimescaleRepository(IMarketDataStorage):
         """Persistencia con timestamp real del evento"""
         # Si no viene timestamp (fallback), usamos UTC actual
         ts = timestamp or datetime.now(timezone.utc)
-        
+        symbol = symbol.upper()
+
         async with self.async_session() as session:
-            query = text("""
-                INSERT INTO trading_signals (time, symbol, signal_type, price, rsi)
-                VALUES (:time, :symbol, :signal, :price, :rsi)
-            """)
-            await session.execute(query, {
-                "time": ts,
-                "symbol": symbol, 
-                "signal": signal_type, 
-                "price": price, 
-                "rsi": rsi
-            })
-            await session.commit()
-            logger.debug("signal_persisted", symbol=symbol, type=signal_type, ts=ts)
+            
+            stmt = insert(SignalModel).values(
+                time=ts,
+                symbol=symbol,
+                signal_type=signal_type,
+                price=price,
+                rsi=rsi
+            )
+            stmt = stmt.on_conflict_do_nothing(index_elements=['time', 'symbol'])
+
+            try:
+                await session.execute(stmt)
+                await session.commit()
+                logger.debug("signal_processed", symbol=symbol, type=signal_type, ts=ts)
+            except Exception as e:
+                await session.rollback()
+                logger.error("error_persisting_signal", error=str(e), symbol=symbol)
 
     async def save_candles(self, candles: List[Candle]):
         async with self.async_session() as session:
             for c in candles:
                 # 'Upsert': Si ya existe (mismo timestamp/symbol/tf), actualiza.
                 stmt = insert(CandleModel).values(
-                    symbol=c.symbol,
+                    symbol=c.symbol.upper(),
                     timestamp=c.timestamp,
                     open=c.open,
                     high=c.high,
@@ -74,6 +79,7 @@ class TimescaleRepository(IMarketDataStorage):
                     volume=c.volume,
                     timeframe=c.timeframe
                 ).on_conflict_do_nothing() # No duplicamos datos
+
                 await session.execute(stmt)
             await session.commit()
         logger.debug("candles_saved_to_db", count=len(candles))
@@ -118,7 +124,7 @@ class TimescaleRepository(IMarketDataStorage):
             ]
 
     async def save_mining_stats(self, worker: str, hashrate: float, coin: str, timestamp: datetime = None):
-
+        """Registro de rendimiento individual por worker"""
         async with self.async_session() as session:
             db_time = timestamp or datetime.now(timezone.utc)
             
@@ -130,7 +136,13 @@ class TimescaleRepository(IMarketDataStorage):
                 coin=coin
             )
             session.add(new_stat)
-            await session.commit()
+            try:
+                await session.commit()
+                # Log con el nombre del worker para saber quién está minando
+                logger.info("mining_stat_recorded", worker=worker, hashrate=hashrate)
+            except Exception as e:
+                await session.rollback()
+                logger.error("error_saving_mining_stats", error=str(e), worker=worker)
 
     async def get_recent_signals(self, hours: int):
         """FIX: Se reemplaza utcnow() por now(timezone.utc)"""
