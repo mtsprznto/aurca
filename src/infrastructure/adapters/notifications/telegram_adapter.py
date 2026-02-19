@@ -10,12 +10,12 @@ class TelegramAdapter(NotificationPort):
     def __init__(self):
         self.token = settings.TELEGRAM_BOT_TOKEN
         self.chat_id = settings.TELEGRAM_CHAT_ID
-        #self.base_url = f"https://api.telegram.org/bot{self.token}/sendMessage"
         self.enabled = all([self.token, self.chat_id])
         
         self._lock = asyncio.Lock()
         self._last_sent = 0
-        self._client = httpx.AsyncClient(timeout=10.0) # Cliente persistente
+        # Cliente único para evitar fugas de memoria y sockets
+        self._client = httpx.AsyncClient(timeout=10.0) 
 
         if self.enabled:
             self.base_url = f"https://api.telegram.org/bot{self.token}/sendMessage"
@@ -28,47 +28,53 @@ class TelegramAdapter(NotificationPort):
         
         async with self._lock:
             try:
+                # Rate limiting manual (1.5s entre mensajes)
                 now = asyncio.get_event_loop().time()
                 wait = 1.5 - (now - self._last_sent)
                 if wait > 0:
                     await asyncio.sleep(wait)
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    payload = {
-                        "chat_id": self.chat_id,
-                        "text": f"**Aurca RIG: {settings.RIG_NAME}: **\n{message}",
-                        "parse_mode": "Markdown"
-                    }
-                    for attempt in range(3):
-                        response = await self._client.post(self.base_url, json=payload)
-                        
-                        if response.status_code == 429:
-                            retry_after = response.json().get("parameters", {}).get("retry_after", 5)
-                            logger.warning("telegram_rate_limited", retry_after=retry_after)
-                            await asyncio.sleep(retry_after + 1)
-                            continue
-                        
-                        response.raise_for_status()
-                        self._last_sent = asyncio.get_event_loop().time()
-                        return True
+                
+                # Usamos HTML para evitar errores de escape de Markdown
+                payload = {
+                    "chat_id": self.chat_id,
+                    "text": f"<b>Aurca RIG:</b> <code>{settings.RIG_NAME}</code>\n\n{message}",
+                    "parse_mode": "HTML"
+                }
+                
+                for attempt in range(3):
+                    response = await self._client.post(self.base_url, json=payload)
+                    
+                    if response.status_code == 429:
+                        retry_after = response.json().get("parameters", {}).get("retry_after", 5)
+                        await asyncio.sleep(retry_after + 1)
+                        continue
+                    
+                    if response.status_code != 200:
+                        # Esto nos dirá exactamente qué carajo le molesta a Telegram
+                        logger.error("telegram_api_error", status=response.status_code, response=response.text)
+                    
+                    response.raise_for_status()
+                    self._last_sent = asyncio.get_event_loop().time()
+                    return True
                     
             except Exception as e:
                 logger.error("telegram_send_failed", error=str(e))
                 return False
-        
+
     async def send_trade_alert(self, symbol: str, signal: str, price: float, analysis: dict):
         try:
             emoji = "🚀" if signal == "BUY" else "🔻"
+            # Formateamos con etiquetas HTML simples
             text = (
-                f"{emoji} **NUEVA SEÑAL DETECTADA** {emoji}\n\n"
-                f"**Symbol:** `{symbol}`\n"
-                f"**Signal:** `{signal}`\n"
-                f"**Price:** `${price:,.2f}`\n\n"
-                f"📊 **Engine Analysis (C++):**\n"
-                f"• RSI: `{analysis.get('rsi', 0):.2f}`\n"
-                f"• Returns: `{analysis.get('returns', 0):.4f}%`"
+                f"{emoji} <b>NUEVA SEÑAL DETECTADA</b> {emoji}\n\n"
+                f"<b>Symbol:</b> <code>{symbol}</code>\n"
+                f"<b>Signal:</b> <code>{signal}</code>\n"
+                f"<b>Price:</b> <code>${price:,.2f}</code>\n\n"
+                f"📊 <b>Engine Analysis (C++):</b>\n"
+                f"• RSI: <code>{analysis.get('rsi', 0):.2f}</code>\n"
+                f"• Returns: <code>{analysis.get('returns', 0):.4f}%</code>"
             )
             return await self.send_message(text)
         except Exception as e:
             logger.error("telegram_send_failed", error=str(e))
             return False
-    
