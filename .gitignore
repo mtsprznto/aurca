@@ -29,3 +29,4 @@ logs/
 log.txt
 *.log
 nanominer/
+cpu.env

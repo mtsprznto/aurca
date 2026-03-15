@@ -14,15 +14,15 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_HOST}:${DB_PORT}/${POSTGRES_DB}
       - DEBUG_MODE=true
     networks:
-      - aurca_shared_net # <--- UNIR A LA RED
-  
+      - aurca_shared_net 
+
   miner:
     build:
       context: .
       dockerfile: ${MINER_DOCKERFILE:-docker/miner/Dockerfile}
     container_name: aurca_miner
     restart: always
-    env_file: .env 
+    env_file: .env
     ports:
       - "${MINER_WEB_PORT:-9090}:9090"
     environment:
