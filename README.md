@@ -70,6 +70,29 @@ Para el agente, se necesita usar la interfaz WEB para la creación inicial de la
 
 ### CPU
 
+> Antes de ejecutar el install, darle permisos 
+~~~bash
+chmod +x install/install_.sh
 ~~~
+
+Instalar 
+~~~bash
+./install/install_.sh
+~~~
+
+Si hay problemas con el espacio ram ejecutar el parche
+~~~bash
+chmod +x ./install/setup_swap.sh
+
+./install/setup_swap.sh
+~~~
+
+~~~bash
 sudo docker compose -f docker-compose-cpu.yml up -d --build
 ~~~
+
+---
+
+# Monedas
+
+URL: https://unmineable.com/address/0xa...
