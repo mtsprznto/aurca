@@ -1,5 +1,8 @@
 #!/bin/bash
-
+#---------------
+# antes de correr este escript 
+# chmod +x install/install_.sh
+#---------------
 # Colores para feedback
 CYAN='\033[0-36m'
 GREEN='\033[0-32m'
@@ -34,13 +37,6 @@ check_port() {
     lsof -Pi :$1 -sTCP:LISTEN -t >/dev/null && return 1 || return 0
 }
 
-echo -e "${YELLOW}[*] Verificando puertos (3000, 5433, 9090)...${NC}"
-for port in 3000 5433 9090; do
-    if ! check_port $port; then
-        echo -e "${RED}[!] Puerto $port ocupado. Abortando.${NC}"
-        exit 1
-    fi
-done
 
 # --- 3. Limpieza de Formatos (CRLF a LF) ---
 echo -e "${YELLOW}[*] Blindando scripts contra formatos de Windows...${NC}"
@@ -73,10 +69,48 @@ echo "2) Modo CPU (Servidor/VPS)"
 echo "3) Salir"
 read -p "Opción: " OPTION
 
+if [ "$OPTION" == "1" ]; then # <--- Cambiado a 1 para Full Stack
+    INSTALL_MODE="fullstack"
+    echo -e "${GREEN}[INFO] Modo Full Stack seleccionado.${NC}"
+    
+    # --- LÓGICA DE PUERTOS SOLO PARA FULL STACK ---
+    read -p "Configurar puerto para la interfaz Web (por defecto 3000): " WEB_PORT
+    WEB_PORT=${WEB_PORT:-3000}
+    
+    read -p "Configurar puerto para la Base de Datos (por defecto 5432): " DB_PORT
+    DB_PORT=${DB_PORT:-5432}
+    
+    # Inyectar en el .env para que docker-compose los vea
+    sed -i "s/^WEB_PORT=.*/WEB_PORT=$WEB_PORT/" .env 2>/dev/null || echo "WEB_PORT=$WEB_PORT" >> .env
+    sed -i "s/^DB_PORT=.*/DB_PORT=$DB_PORT/" .env 2>/dev/null || echo "DB_PORT=$DB_PORT" >> .env
+    
+else
+    INSTALL_MODE="cpu"
+    echo -e "${YELLOW}[INFO] Modo CPU seleccionado. Omitiendo configuración de puertos web/db.${NC}"
+    WEB_PORT=3000
+    DB_PORT=5432
+fi
+
+# Pregunta común: Puerto del Minero (Añadido para que sea útil en ambos)
+read -p "Configurar puerto del monitor del Minero (por defecto 9090): " MINER_PORT
+MINER_PORT=${MINER_PORT:-9090}
+sed -i "s/^MINER_WEB_PORT=.*/MINER_WEB_PORT=$MINER_PORT/" .env 2>/dev/null || echo "MINER_WEB_PORT=$MINER_PORT" >> .env
+
 case $OPTION in
-    1) MODE="FULL (GPU)"; docker compose up -d --build ;;
-    2) MODE="LIGHT (CPU)"; docker compose -f docker-compose-cpu.yml up -d --build ;;
-    *) exit 0 ;;
+    1) 
+        MODE="FULL (GPU)"
+        docker compose up -d --build 
+        ;;
+    2) 
+        MODE="LIGHT (CPU)"
+        # Forzamos la variable en el .env para que el docker-compose-cpu sepa qué dockerfile usar
+        sed -i "s|^MINER_DOCKERFILE=.*|MINER_DOCKERFILE=docker/miner/Dockerfile.cpu|" .env
+        docker compose -f docker-compose-cpu.yml up -d --build 
+        ;;
+    *) 
+        echo "Saliendo..."
+        exit 0 
+        ;;
 esac
 
 # --- 7. Notificación a Telegram ---
